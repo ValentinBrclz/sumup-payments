@@ -1,32 +1,30 @@
 # Checkout flow
 
-The checkout flow described bellow enables third-party client applications to create and process payments in a browser or a native application
-such as mobile application.
-
+The checkout flow described below enables third-party applications to create and process payments in a browser or a native application
+such as mobile app.
 
 _Processing payments is available only for browsers with CORS support. There are no specific restrictions related to native applications._
-
 
 ##1. Roles
 
 Client
-> is the backend of a user facing application. It is responsible for the server side communicution about authorization, checkout creation and status retrieval 
+> The **user interface** that might be rendered in a browser or in a mobile app. It passes user-provided card details to the Server, which will in turn send a request to process payments through SumUp.
 
-User-Agent or App
-> is the UI of the client application that might be rendered in a browser. It collects user input about payment instrument (card) and requests completion of the payment passing passing card details.
+Server
+> The **backend** that serves the client application. It is responsible for the server-side communicution with SumUp with regards to authorization, creating checkouts, and retrieving the status of a checkout.
 
-Authorization server
-> the server that provides authentication, checkout creation/processing and details about the state of checkouts
+SumUp
+> The **SumUp's server** that provides authentication, checkout creation/processing, and details about the state of checkouts.
 
 ##2. Flow
 
 `
-         +-----------------+                          +---------------------+
-         |                 <---------(E1) ------------+                     |
-         |  User-Agent or  |                          |  Authorization      |
-         |  Native App     |                          |  Server             |
-         |                 +---------(E)-------------->                     |
-         +---^---------+---+                          +------^-------^--^-^-+
+         +-----------------+                          +------------------------+
+         |                 <---------(E1) ------------+                        |
+         |  Client         |                          |  SumUp                 |
+         |  (Web|Mobile)   |                          |  (Auth/Payment Server) |
+         |                 +---------(E)-------------->                        |
+         +---^---------+---+                          +------^-------^--^-^----+
              |         |                                     |       |  | |
              |         |                                     |       |  | |
             (D)       (D1)                                   |       |  | |
@@ -35,9 +33,9 @@ Authorization server
              |         |                                     |       |  | |
          +---+---------v---+                                 |       |  | |
          |                 +----------(F)--------------------+       |  | |
-         |  Client         |                                         |  | |
-         |                 |                                         |  | |
-         |                 |                                         |  | |
+         |  Server         |                                         |  | |
+         |  (Your          |                                         |  | |
+         |  Backend)       |                                         |  | |
          |                 +----------------------------(C)----------+  | |
          |                 +--------------(B)---------------------------+ |
          |                 +-(A)------------------------------------------+
@@ -46,8 +44,8 @@ Authorization server
 
 ##3. Flow steps
 
-###3.1 (A) Authentication
-The first step for a client is to authenticate with client credentials. After successful authentication it obtains an access token that must be used in checkout related requests. Example:
+###3.1 (A) Get an access token from SumUp
+First, your Server needs to authenticate with SumUp. Send a request to SumUp with your client credentials (obtained on the SumUp Dashboard). SumUp will respond with an `access_token` that must be included in subsequent requests relating to this checkout. For example:
 
 _Request_
 
@@ -68,23 +66,23 @@ _Response_
         "access_token": "....."
     }    
 
-###3.2 (B) Create checkout
-Checkout is created in a server to server comunication between the Client and the Authorization Server for an amount that can't be altered after its creation. The request body should include the following attributes:
+###3.2 (B) Create a checkout
+A new checkout is created in a server-to-server communication between your Server and SumUp. The amount of the checkout cannot be altered after it's been created. The body of the request should include the following parameters:
 
 **amount**
-> (mandatory) the checkout payable amount
+> (required) The payable amount.
 
 **currency**
-> (mandatory) the checkout currency. Should be the same as the payee's account currency. Supported currencies are EUR, GBP, BRL, PLN, CHF, SEK, USD
+> (required) The checkout currency. Should be the same as the payee's account currency (based on the registration country). Supported currencies include EUR, GBP, BRL, PLN, CHF, SEK, USD.
 
 **pay\_to\_email**
-> (mandatory) the email of the payee. Should be a registered SumUp account that is allowed to receive payments
+> (required) The email of the payee. Should correspond to a registered SumUp account that is allowed to receive payments.
 
 **checkout_reference**
-> (mandatory) the client should use this parameter to pass its own identifier for the checkout that can be used later for reconciliation purposes - match specific checkout
+> (required) The Server should use this parameter to pass its own identifier for the checkout, which can be used later for reconciliation purposes - match specific checkout (?)
 
 **description**
-> (optional) description of the checkout
+> (optional) A description of the checkout.
 
 Example:
 
@@ -99,7 +97,7 @@ _Request_
         "amount": 10.5,
         "currency": "EUR",
         "pay_to_email": "payee@mail.com",
-        "checkout_reference": "my-inique-identifier"
+        "checkout_reference": "my-unique-identifier"
     }
 
 _Response_
@@ -108,7 +106,7 @@ _Response_
     
     {
         "id": "80e5e401-a503-4333-a446-6f190c08d617",
-        "checkout_reference": "my-inique-identifier",
+        "checkout_reference": "my-unique-identifier",
         "amount": 10.5,
         "currency": "EUR",
         "pay_to_email": "payee@mail.com",
@@ -116,10 +114,10 @@ _Response_
         "date": "2016-01-01T01:00:00.251Z"
     }    
 
-Possible response status values can be PAID | PENDING | FAILED
+Possible response status values can be PAID | PENDING | FAILED.
 
-###3.3 (C) Obtain payment authorization code
-In order to complete a checkout in a browser an authorization should be used. The authorization code is a token valid for one request. Example of Client request
+###3.3 (C) Obtain a payment authorization code
+In order to complete a checkout in a browser, an authorization code must accompany the request. This code is valid for a single request. An example of a request to obtain this code between your Server and SumUp:
 
     POST /one-time-tokens
     Headers: Authorization: Bearer {access_token}
@@ -128,14 +126,14 @@ In order to complete a checkout in a browser an authorization should be used. Th
 
 The header X-Sumup-Allow-Origin should be set to the Client domain in order to enable CORS requests needed to complete the checkout.
 
-The server response to the above request is `{"otpToken": ...}`
+The server response to the above request is `{ "otpToken": "..." }`
 
 ###3.4 (D) Expose payment info to the browser
-The Client is exposing the authorization code and checkout id so that the checkout can be completed in the user-agent.
+Your Server then needs to expose the authorization code and checkout id to the Client, so that the checkout can be completed based on an action that happens on the Client (for example, clicking a "Pay Now" button).
 
 
 ###3.5 (E) Complete payment
-The checkout can be completed in the user-agent by a simple ajax PUT request as
+After creating the checkout, the Client can finalize it by passing the payment detils with a simple ajax PUT request, like:
 
     
     PUT /v0.1/checkouts/:checkoutId?otp={auth_code}
@@ -152,12 +150,27 @@ The checkout can be completed in the user-agent by a simple ajax PUT request as
     }
     
 
-The path parameter `checkoutId` is set to the checkout id obtained in step 3.2 (B) ant the query parameter `otp` is set to the authorization code obtained in 3.3 (C)
+The URI parameter `checkoutId` should be the `id` obtained in step 3.2 (B) as part of the checkout response from SumUp, for example:
 
-The above request will return a checkout object (see 3.2 for example).
+    /v0.1/checkouts/80e5e401-a503-4333-a446-6f190c08d617?otp={auth_code}
+
+    {
+      "payment_type":"card",
+        "card": {
+            "cvv": "...",
+            "expiry_month": "01",
+            "expiry_year": "2016",
+            "number": ".......",
+          "name":"...."
+        }
+    }
+
+And the query parameter `otp` should be the authorization code obtained in 3.3 (C).
+
+After you make this request, SumUp will respond with a checkout object (see 3.2 for an example).
 
 ###3.6 Additional steps (D1,F)
-After processing a checkout the client can check its state by a GET request. This call will return a checkout object as described in 3.2 
+After processing a checkout, the client can check its state via GET request. This call will return a checkout object as described in 3.2. 
 
 Example request:
 
