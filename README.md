@@ -11,10 +11,10 @@ Client
 > The **user interface** that might be rendered in a browser or in a mobile app. It passes user-provided card details to the Server, which will in turn send a request to process payments through SumUp.
 
 Server
-> The **backend** that serves the client application. It is responsible for the server-side communicution with SumUp with regards to authorization, creating checkouts, and retrieving the status of a checkout.
+> The **backend** that serves the client application. It is responsible for the server-side communication with SumUp with regards to authorization, creating checkouts, and retrieving the status of a checkout.
 
 SumUp
-> The **SumUp's server** that provides authentication, checkout creation/processing, and details about the state of checkouts.
+> **SumUp's server**, which provides authentication, checkout creation/processing, and details about the state of checkouts.
 
 ##2. Flow
 
@@ -116,7 +116,7 @@ _Response_
 
 Possible response status values can be PAID | PENDING | FAILED.
 
-###3.3 (C) Obtain a payment authorization code
+###3.3 (C) Obtain a payment authorization code (OTP Token)
 In order to complete a checkout in a browser, an authorization code must accompany the request. This code is valid for a single request. An example of a request to obtain this code between your Server and SumUp:
 
     POST /one-time-tokens
@@ -126,14 +126,16 @@ In order to complete a checkout in a browser, an authorization code must accompa
 
 The header X-Sumup-Allow-Origin should be set to the Client domain in order to enable CORS requests needed to complete the checkout.
 
-The server response to the above request is `{ "otpToken": "..." }`
+The server would response to the above request with:
 
-###3.4 (D) Expose payment info to the browser
-Your Server then needs to expose the authorization code and checkout id to the Client, so that the checkout can be completed based on an action that happens on the Client (for example, clicking a "Pay Now" button).
+    { "otpToken": "..." }
+
+###3.4 (D) Expose checkout's `id` and the `otpToken` to the browser
+Your Server then needs to expose the authorization code (otpToken) and checkout's id to the Client, so that the Client can trigger a request using these two pieces of data based on an action that happens on the Client (for example, clicking a "Pay Now" button).
 
 
 ###3.5 (E) Complete payment
-After creating the checkout, the Client can finalize it by passing the payment detils with a simple ajax PUT request, like:
+After creating the checkout, the Client can finalize it by passing the payment details with a simple ajax PUT request, like:
 
     
     PUT /v0.1/checkouts/:checkoutId?otp={auth_code}
