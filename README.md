@@ -1,20 +1,30 @@
 # Checkout flow
 
-The checkout flow described below enables third-party applications to create and process payments in a browser or a native application
-such as mobile app.
+The checkout flow described below enables applications to create a checkout and process card payments in a browser or a native application such as a mobile application.
+
+Checkouts are created in a server to server communication. This allows to
+
+*   keep your access token and client credentials secret.
+*   prevent changes of your web based checkout properties. For example, amount or recipient.
+
+Checkouts are processed by the client (in a browser in the case of web application). This guarantees that
+
+*   no sensitive (card data) ever hits your server.
+*   you don't need to worry about PCI compliance.
+*   you are in full control of the UI thus giving the best user experience to your customers.
 
 _Processing payments is available only for browsers with CORS support. There are no specific restrictions related to native applications._
 
 ##1. Roles
 
 Client
-> The **user interface** that might be rendered in a browser or in a mobile app. It passes user-provided card details to the Server, which will in turn send a request to process payments through SumUp.
+> The **user interface** that might be rendered in a browser or in a mobile app. It processes checkouts created by your server by passing user-provided card details to SumUp backend.
 
 Server
 > The **backend** that serves the client application. It is responsible for the server-side communication with SumUp with regards to authorization, creating checkouts, and retrieving the status of a checkout.
 
 SumUp
-> **SumUp's server**, which provides authentication, checkout creation/processing, and details about the state of checkouts.
+> **SumUp's server**, which provides authentication, checkout creation and processing, and details about the state of checkouts.
 
 ##2. Flow
 
@@ -79,7 +89,7 @@ A new checkout is created in a server-to-server communication between your Serve
 > (required) The email of the payee. Should correspond to a registered SumUp account that is allowed to receive payments.
 
 **checkout_reference**
-> (required) The Server should use this parameter to pass its own identifier for the checkout, which can be used later for reconciliation purposes - match specific checkout (?)
+> (required) The Server should use this parameter to pass its own unique identifier for the checkout, which can be used later for reconciliation purposes.
 
 **description**
 > (optional) A description of the checkout.
@@ -138,7 +148,7 @@ Your Server then needs to expose the authorization code (otpToken) and checkout'
 After creating the checkout, the Client can finalize it by passing the payment details with a simple ajax PUT request, like:
 
     
-    PUT /v0.1/checkouts/:checkoutId?otp={auth_code}
+    PUT /v0.1/checkouts/:id?otp={otpToken}
     
     {
       "payment_type":"card",
@@ -152,9 +162,9 @@ After creating the checkout, the Client can finalize it by passing the payment d
     }
     
 
-The URI parameter `checkoutId` should be the `id` obtained in step 3.2 (B) as part of the checkout response from SumUp, for example:
+The path parameter `id` should be the `id` obtained in step 3.2 (B) as part of the checkout response from SumUp, for example:
 
-    /v0.1/checkouts/80e5e401-a503-4333-a446-6f190c08d617?otp={auth_code}
+    /v0.1/checkouts/80e5e401-a503-4333-a446-6f190c08d617?otp={otpToken}
 
     {
       "payment_type":"card",
@@ -177,6 +187,6 @@ After processing a checkout, the client can check its state via GET request. Thi
 Example request:
 
     
-    GET /v0.1/checkouts/:checkoutId
+    GET /v0.1/checkouts/:id
     Headers: Authorization: Bearer {access_token}
     
